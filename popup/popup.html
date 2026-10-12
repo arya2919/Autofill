@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATS Autofill</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="brand"><img src="../icons/icon32.png" alt="" width="20" height="20"> ATS Autofill</div>
+    <button id="btn-lock" class="ghost hidden" title="Lock now">🔒 Lock</button>
+  </header>
+
+  <div id="banner" class="banner hidden"></div>
+
+  <!-- First run -->
+  <section id="screen-setup" class="screen hidden">
+    <h2>Create your master password</h2>
+    <p class="muted">Your profile is encrypted on this device with this password (AES-256-GCM). It is never sent anywhere.
+      <b>If you forget it, your data cannot be recovered</b> &mdash; export an encrypted backup in Settings.</p>
+    <label>Master password (8+ characters)<input id="setup-pw" type="password" autocomplete="new-password"></label>
+    <label>Confirm password<input id="setup-pw2" type="password" autocomplete="new-password"></label>
+    <button id="btn-create" class="primary">Create encrypted vault</button>
+    <details>
+      <summary>Restore from an encrypted backup</summary>
+      <p class="muted small">Open your backup file, copy its contents and paste them here.</p>
+      <textarea id="import-text-setup" rows="4" spellcheck="false"></textarea>
+      <button id="btn-import-setup" class="secondary">Import backup</button>
+    </details>
+  </section>
+
+  <!-- Locked -->
+  <section id="screen-unlock" class="screen hidden">
+    <h2>Unlock</h2>
+    <label>Master password<input id="unlock-pw" type="password" autocomplete="current-password"></label>
+    <button id="btn-unlock" class="primary">Unlock</button>
+  </section>
+
+  <!-- Main -->
+  <section id="screen-main" class="screen hidden">
+    <nav class="tabs">
+      <button data-tab="fill" class="active">Fill</button>
+      <button data-tab="profile">Profile</button>
+      <button data-tab="letter">Cover letter</button>
+      <button data-tab="settings">Settings</button>
+    </nav>
+
+    <!-- FILL -->
+    <div class="tab" id="tab-fill">
+      <button id="btn-fill" class="primary big">Autofill this page</button>
+      <p class="muted small">Shortcut: <kbd id="kbd-shortcut">Alt+Shift+F</kbd> &middot; change at <code>chrome://extensions/shortcuts</code></p>
+      <label class="check"><input type="checkbox" id="opt-overwrite"> Overwrite fields that already have a value</label>
+      <div id="fill-result" class="result hidden"></div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="tab hidden" id="tab-profile">
+      <div id="profile-form"></div>
+      <details>
+        <summary>Advanced: work history &amp; custom answers (JSON)</summary>
+        <p class="muted small"><code>experience</code> bullets feed the cover-letter tailoring. <code>customAnswers</code> map a
+          regex (matched against field labels) to a fixed answer.</p>
+        <textarea id="adv-json" rows="12" spellcheck="false"></textarea>
+        <button id="btn-adv-example" class="ghost small">Insert example</button>
+      </details>
+      <button id="btn-save-profile" class="primary sticky">Save profile</button>
+    </div>
+
+    <!-- COVER LETTER -->
+    <div class="tab hidden" id="tab-letter">
+      <div class="row">
+        <label>Company<input id="cl-company"></label>
+        <label>Role<input id="cl-role"></label>
+      </div>
+      <label>Hiring manager (optional)<input id="cl-manager"></label>
+      <label>Job description (paste it)<textarea id="cl-jd" rows="7"></textarea></label>
+      <div class="row">
+        <button id="btn-cl-local" class="primary">Generate (local)</button>
+        <button id="btn-cl-ai" class="secondary">Generate with AI</button>
+      </div>
+      <div id="cl-analysis" class="hidden">
+        <div class="score"><span id="cl-score">0</span>% keyword match</div>
+        <div class="chips" id="cl-matched"></div>
+        <p class="muted small">Missing from your profile (add only if true):</p>
+        <div class="chips missing" id="cl-missing"></div>
+      </div>
+      <label>Draft (edit freely)<textarea id="cl-output" rows="12"></textarea></label>
+      <div class="row">
+        <button id="btn-cl-copy" class="ghost">Copy</button>
+        <button id="btn-cl-save" class="secondary">Use for autofill</button>
+      </div>
+      <p class="muted small">"Use for autofill" stores this text in the encrypted vault; it's inserted into any "Cover letter" text box on the next fill.</p>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="tab hidden" id="tab-settings">
+      <h3>Security</h3>
+      <label>Auto-lock after (minutes, 0 = only when the browser closes)<input id="set-autolock" type="number" min="0" max="1440"></label>
+      <button id="btn-save-autolock" class="secondary">Save</button>
+      <details>
+        <summary>Change master password</summary>
+        <label>Current password<input id="pw-old" type="password" autocomplete="current-password"></label>
+        <label>New password<input id="pw-new" type="password" autocomplete="new-password"></label>
+        <button id="btn-change-pw" class="secondary">Change password</button>
+      </details>
+
+      <h3>Backup</h3>
+      <div class="row">
+        <button id="btn-export" class="secondary">Download encrypted backup</button>
+        <button id="btn-export-copy" class="secondary">Copy backup</button>
+      </div>
+      <details>
+        <summary>Import a backup (replaces current vault)</summary>
+        <textarea id="import-text" rows="4" spellcheck="false" placeholder="Paste backup JSON here"></textarea>
+        <button id="btn-import" class="secondary">Import backup</button>
+      </details>
+
+      <h3>AI cover letters (optional)</h3>
+      <label>Provider
+        <select id="ai-provider">
+          <option value="anthropic">Anthropic (Claude API)</option>
+          <option value="openai">OpenAI-compatible / local (Ollama, LM Studio)</option>
+        </select>
+      </label>
+      <label id="ai-base-wrap">API base URL<input id="ai-base" placeholder="http://localhost:11434/v1"></label>
+      <label>Model<input id="ai-model" placeholder="claude-sonnet-5-5"></label>
+      <label>API key (stored encrypted; leave empty for local servers)<input id="ai-key" type="password" autocomplete="off"></label>
+      <button id="btn-save-ai" class="secondary">Save AI settings</button>
+
+      <h3>Embedded application forms</h3>
+      <p class="muted small">Some companies embed Greenhouse/Lever/Workday forms in an iframe on their own site. To fill those, allow access to all HTTPS sites. Without it, only the main page is filled.</p>
+      <button id="btn-perm-all" class="secondary">Allow embedded forms</button>
+
+      <h3 class="danger">Danger zone</h3>
+      <button id="btn-wipe" class="danger-btn">Erase everything</button>
+    </div>
+  </section>
+
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
