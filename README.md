@@ -392,4 +392,4 @@ In tests you can call `__ATSF.run(answers, { dryRun: true })` to see what *would
 
 ## Licence
 
-Personal-use project. Add a licence of your choice (e.g. MIT) before sharing publicly.
+[MIT](LICENSE) © 2026 arya2919
